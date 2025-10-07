@@ -225,27 +225,21 @@ jobs:
             const createdIssues = [];
 
             for (const task of plan.tasks) {
-              const issueBody = `## Task Description
-${task.description}
-
-## Parent Issue
-This task is part of #${parentIssue}
-
-## Dependencies
-${task.dependencies.length > 0 ? task.dependencies.map(d => `- ${d}`).join('\n') : 'None - can start immediately'}
-
-## Acceptance Criteria
-- [ ] Code implemented and tested
-- [ ] Tests passing (unit + integration)
-- [ ] Documentation updated
-- [ ] PR created and linked to this issue
-
-## Instructions
-Please read [.github/AGENTS.md](.github/AGENTS.md) for detailed guidelines.
-
----
-*Created by Planning Agent*
-`;
+              const issueBody = '## Task Description\n' +
+                task.description + '\n\n' +
+                '## Parent Issue\n' +
+                'This task is part of #' + parentIssue + '\n\n' +
+                '## Dependencies\n' +
+                (task.dependencies.length > 0 ? task.dependencies.map(d => '- ' + d).join('\n') : 'None - can start immediately') + '\n\n' +
+                '## Acceptance Criteria\n' +
+                '- [ ] Code implemented and tested\n' +
+                '- [ ] Tests passing (unit + integration)\n' +
+                '- [ ] Documentation updated\n' +
+                '- [ ] PR created and linked to this issue\n\n' +
+                '## Instructions\n' +
+                'Please read [.github/AGENTS.md](.github/AGENTS.md) for detailed guidelines.\n\n' +
+                '---\n' +
+                '*Created by Planning Agent*';
 
               const newIssue = await github.rest.issues.create({
                 owner: context.repo.owner,
