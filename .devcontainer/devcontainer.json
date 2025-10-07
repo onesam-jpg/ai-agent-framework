@@ -1,0 +1,118 @@
+{
+  "name": "AI Agent Development Framework",
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    },
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.11"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "moby": true
+    }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "ms-vscode-remote.remote-containers",
+        "ms-vscode.vscode-ai-toolkit",
+        "supabase.supabase-vscode",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "ms-playwright.playwright",
+        "GitHub.vscode-pull-request-github"
+      ],
+
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        "editor.codeLens": false,
+        "files.hotExit": "off",
+        "files.autoSave": "onFocusChange",
+
+        "typescript.tsserver.maxTsServerMemory": 4096,
+        "typescript.preferences.importModuleSpecifier": "relative",
+
+        "tailwindCSS.experimental.classRegex": [
+          ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
+          ["cn\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"]
+        ],
+
+        "search.exclude": {
+          "**/node_modules": true,
+          "**/dist": true,
+          "**/.next": true,
+          "**/out": true,
+          "**/.vercel": true
+        },
+
+        "chat.mcp.discovery.enabled": true,
+
+        "github.copilot.enable": {
+          "*": true,
+          "markdown": true,
+          "yaml": true
+        },
+
+        "github.copilot.chat.codeGeneration.instructions": [
+          {
+            "file": ".github/AGENTS.md"
+          }
+        ],
+
+        "supabase.showInlineVariableNames": true
+      }
+    }
+  },
+
+  "forwardPorts": [3000, 54321, 54322, 54323, 54324],
+
+  "portsAttributes": {
+    "3000": {
+      "label": "Next.js App",
+      "onAutoForward": "notify"
+    },
+    "54321": {
+      "label": "Supabase Studio",
+      "onAutoForward": "silent"
+    },
+    "54322": {
+      "label": "PostgreSQL",
+      "onAutoForward": "silent"
+    },
+    "54323": {
+      "label": "Supabase Auth",
+      "onAutoForward": "silent"
+    },
+    "54324": {
+      "label": "Supabase Storage",
+      "onAutoForward": "silent"
+    }
+  },
+
+  "postCreateCommand": "bash .devcontainer/postCreate.sh",
+
+  "remoteUser": "codespace",
+
+  "containerEnv": {
+    "EDITOR": "code",
+    "SHELL": "/bin/bash"
+  },
+
+  "mounts": [
+    "source=${localEnv:HOME}/.ssh,target=/home/codespace/.ssh,type=bind,consistency=cached"
+  ]
+}

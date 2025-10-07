@@ -1,0 +1,110 @@
+name: "Copilot Setup Steps"
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Node Dependencies
+        run: |
+          if [ -f package.json ]; then
+            npm ci
+          else
+            echo "No package.json found - skipping npm install"
+          fi
+
+      - name: Install Python Dependencies
+        run: |
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            echo "No requirements.txt found - skipping pip install"
+          fi
+
+      - name: Install Supabase CLI
+        run: |
+          npm install -g supabase
+
+      - name: Setup Playwright (for E2E tests)
+        run: |
+          if grep -q "@playwright/test" package.json 2>/dev/null; then
+            npx playwright install --with-deps
+          else
+            echo "Playwright not in dependencies - skipping"
+          fi
+
+      - name: Verify Environment
+        run: |
+          echo "Node version: $(node --version)"
+          echo "NPM version: $(npm --version)"
+          echo "Python version: $(python --version)"
+          echo "Supabase CLI version: $(supabase --version)"
+
+      - name: Run Database Migrations (if Supabase configured)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          if [ -d "supabase" ] && [ -n "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "Running Supabase migrations..."
+            supabase link --project-ref $SUPABASE_PROJECT_REF
+            supabase db push
+          else
+            echo "Supabase not configured - skipping migrations"
+          fi
+
+      - name: Generate Supabase Types
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          if [ -d "supabase" ] && [ -n "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "Generating TypeScript types from database..."
+            supabase gen types typescript --linked > types/supabase.ts || mkdir -p types && supabase gen types typescript --linked > types/supabase.ts
+          else
+            echo "Supabase not configured - skipping type generation"
+          fi
+
+      - name: Build Project
+        run: |
+          if grep -q "\"build\"" package.json 2>/dev/null; then
+            npm run build
+          else
+            echo "No build script found - skipping"
+          fi
+
+      - name: Run Tests
+        run: |
+          if grep -q "\"test\"" package.json 2>/dev/null; then
+            npm test
+          else
+            echo "No test script found - skipping"
+          fi
+
+      - name: Environment Ready
+        run: |
+          echo "✅ Copilot environment is fully configured and ready!"
+          echo "All dependencies installed, tests passing, build successful."

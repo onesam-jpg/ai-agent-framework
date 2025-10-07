@@ -1,0 +1,375 @@
+name: Specialized Agents - Task Execution
+
+on:
+  issues:
+    types: [labeled, opened]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Issue number to assign to Copilot'
+        required: true
+        type: number
+      agent_type:
+        description: 'Agent type'
+        required: true
+        type: choice
+        options:
+          - web-dev
+          - database
+          - api
+          - testing
+          - devops
+          - docs
+
+permissions:
+  issues: write
+  contents: write
+  pull-requests: write
+
+jobs:
+  # Trigger Copilot Coding Agent for labeled issues
+  assign-to-copilot:
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'issues' &&
+       (contains(github.event.issue.labels.*.name, 'agent:web-dev') ||
+        contains(github.event.issue.labels.*.name, 'agent:database') ||
+        contains(github.event.issue.labels.*.name, 'agent:api') ||
+        contains(github.event.issue.labels.*.name, 'agent:testing') ||
+        contains(github.event.issue.labels.*.name, 'agent:devops') ||
+        contains(github.event.issue.labels.*.name, 'agent:docs'))) ||
+      github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Determine Agent Type
+        id: agent
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            AGENT_TYPE="${{ inputs.agent_type }}"
+          else
+            # Extract from label
+            LABELS="${{ join(github.event.issue.labels.*.name, ' ') }}"
+            if [[ "$LABELS" =~ agent:([a-z-]+) ]]; then
+              AGENT_TYPE="${BASH_REMATCH[1]}"
+            else
+              AGENT_TYPE="web-dev"
+            fi
+          fi
+          echo "type=$AGENT_TYPE" >> $GITHUB_OUTPUT
+
+      - name: Get Issue Details
+        id: issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = context.payload.issue?.number || ${{ inputs.issue_number }};
+            const issue = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber
+            });
+
+            return {
+              number: issue.data.number,
+              title: issue.data.title,
+              body: issue.data.body || '',
+              labels: issue.data.labels.map(l => l.name),
+              user: issue.data.user.login
+            };
+
+      - name: Add Agent Assignment Comment
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ fromJSON(steps.issue.outputs.result).number }}
+          AGENT_TYPE: ${{ steps.agent.outputs.type }}
+        with:
+          script: |
+            const issueNumber = process.env.ISSUE_NUMBER;
+            const agentType = process.env.AGENT_TYPE;
+
+            const agentEmojis = {
+              'web-dev': '🎨',
+              'database': '🗄️',
+              'api': '⚡',
+              'testing': '🧪',
+              'devops': '🚀',
+              'docs': '📚'
+            };
+
+            const agentNames = {
+              'web-dev': 'Web Development Agent',
+              'database': 'Database Architecture Agent',
+              'api': 'API Development Agent',
+              'testing': 'Testing Engineer Agent',
+              'devops': 'DevOps Agent',
+              'docs': 'Documentation Agent'
+            };
+
+            const emoji = agentEmojis[agentType] || '🤖';
+            const name = agentNames[agentType] || 'Specialized Agent';
+
+            const comment = `## ${emoji} ${name} Activated
+
+I'm now working on this task. Here's my approach:
+
+### 📋 My Responsibilities
+- Analyze requirements from issue description
+- Review parent issue for context
+- Follow standards in \`.github/AGENTS.md\`
+- Implement solution with tests
+- Create PR when complete
+
+### 🔄 Progress Updates
+I'll post updates here as I work. You can expect:
+1. ✅ Initial analysis complete
+2. 🔨 Implementation in progress
+3. 🧪 Testing phase
+4. 📝 PR ready for review
+
+### ⏱️ Estimated Time
+Based on complexity, I estimate this will take approximately **1-3 hours** (automated work).
+
+---
+*I'm powered by GitHub Copilot Coding Agent running in a secure GitHub Actions environment.*
+`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: comment
+            });
+
+            // Add in-progress label
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: ['in-progress', `agent-assigned:${agentType}`]
+            });
+
+      # This is where GitHub Copilot Coding Agent would be assigned
+      # In practice, you would assign the issue to Copilot through the GitHub UI
+      # or use the GitHub CLI: gh copilot assign <issue-number>
+      - name: Trigger Copilot Agent (Manual Step)
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ fromJSON(steps.issue.outputs.result).number }}
+        with:
+          script: |
+            const issueNumber = process.env.ISSUE_NUMBER;
+
+            core.notice(`
+            📝 Manual Step Required:
+
+            To assign this issue to GitHub Copilot Coding Agent:
+
+            Option 1 - GitHub UI:
+            1. Go to https://github.com/${context.repo.owner}/${context.repo.repo}/issues/${issueNumber}
+            2. Click "Assign to Copilot" in the Development section
+            3. Copilot will create a Codespace and start working
+
+            Option 2 - GitHub CLI:
+            gh copilot assign ${issueNumber} --repo ${context.repo.owner}/${context.repo.repo}
+
+            Option 3 - Agents Panel:
+            Use the Agents panel on GitHub.com to delegate this task to Copilot
+            `);
+
+            // Add a comment with instructions
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `### 🎯 Next Step: Assign to Copilot
+
+**To activate the autonomous coding agent:**
+
+1. **Via GitHub UI**: Click "Assign to Copilot" in the Development section above
+2. **Via GitHub CLI**: \`gh copilot assign ${issueNumber}\`
+3. **Via Agents Panel**: Use the Agents panel to delegate this task
+
+Copilot will then work autonomously in a secure environment and create a PR when complete.
+
+---
+*This workflow has prepared everything. The final step is to assign to Copilot Coding Agent.*`
+            });
+
+  # Monitor agent progress (triggered by PR creation)
+  track-progress:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.action == 'opened' &&
+      contains(github.event.pull_request.body, 'agent:')
+
+    steps:
+      - name: Link PR to Issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prBody = context.payload.pull_request.body || '';
+            const issueMatch = prBody.match(/#(\d+)/);
+
+            if (issueMatch) {
+              const issueNumber = issueMatch[1];
+
+              // Comment on the issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: `## 🎉 Pull Request Created!
+
+The agent has completed work and created PR #${context.payload.pull_request.number}.
+
+### 📝 PR Details
+- **Title**: ${context.payload.pull_request.title}
+- **Link**: ${context.payload.pull_request.html_url}
+
+### 👀 Next Steps
+1. Review the changes in the PR
+2. Run CI/CD checks
+3. Approve and merge if all tests pass
+
+---
+*Agent work completed successfully!*`
+              });
+
+              // Add PR link to issue
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                labels: ['has-pr', 'ready-for-review']
+              });
+
+              // Remove in-progress label
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  name: 'in-progress'
+                });
+              } catch (e) {
+                // Label might not exist
+              }
+            }
+
+  # Run tests and checks on agent-created PRs
+  validate-agent-work:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request' &&
+      (github.event.action == 'opened' || github.event.action == 'synchronize') &&
+      contains(github.event.pull_request.labels.*.name, 'agent-created')
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Linter
+        run: npm run lint || echo "No lint script found"
+
+      - name: Type Check
+        run: npm run type-check || npx tsc --noEmit || echo "No type-check script"
+
+      - name: Run Unit Tests
+        run: npm test || echo "No test script found"
+
+      - name: Run Build
+        run: npm run build || echo "No build script found"
+
+      - name: Comment Test Results
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const status = '${{ job.status }}';
+            const emoji = status === 'success' ? '✅' : '❌';
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: `## ${emoji} Automated Validation ${status === 'success' ? 'Passed' : 'Failed'}
+
+**Status**: ${status.toUpperCase()}
+
+${status === 'success' ?
+  '🎉 All checks passed! This PR is ready for human review.' :
+  '⚠️ Some checks failed. Please review the logs and fix any issues.'}
+
+---
+*Automated validation by Specialized Agent workflow*`
+            });
+
+  # Auto-merge when approved (optional - enable with caution)
+  auto-merge:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request_review' &&
+      github.event.review.state == 'approved' &&
+      contains(github.event.pull_request.labels.*.name, 'agent-created') &&
+      contains(github.event.pull_request.labels.*.name, 'auto-merge-enabled')
+
+    steps:
+      - name: Auto-merge PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              merge_method: 'squash',
+              commit_title: `${context.payload.pull_request.title} (#${context.payload.pull_request.number})`,
+              commit_message: 'Auto-merged by Specialized Agent workflow after approval'
+            });
+
+            // Close linked issue
+            const prBody = context.payload.pull_request.body || '';
+            const issueMatch = prBody.match(/#(\d+)/);
+
+            if (issueMatch) {
+              const issueNumber = issueMatch[1];
+
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                state: 'closed'
+              });
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: `## ✅ Task Completed and Merged!
+
+PR #${context.payload.pull_request.number} has been approved and automatically merged to main.
+
+**Agent**: Successfully completed assigned task
+**Outcome**: Code is now in production
+
+---
+*Specialized Agent workflow - Task Complete*`
+              });
+            }

@@ -1,0 +1,60 @@
+{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "supabase-token",
+      "description": "Supabase Personal Access Token (get from https://supabase.com/dashboard/account/tokens)",
+      "password": true
+    },
+    {
+      "type": "promptString",
+      "id": "github-token",
+      "description": "GitHub Personal Access Token (optional - for enhanced GitHub integration)",
+      "password": true
+    }
+  ],
+  "servers": {
+    "filesystem": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "${workspaceFolder}"
+      ],
+      "env": {}
+    },
+    "supabase": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--access-token",
+        "${input:supabase-token}"
+      ],
+      "env": {
+        "PROJECT_REF": "${env:SUPABASE_PROJECT_REF}"
+      }
+    },
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_TOKEN": "${input:github-token}"
+      }
+    },
+    "memory": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ]
+    }
+  }
+}

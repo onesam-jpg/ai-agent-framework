@@ -1,0 +1,372 @@
+name: Planning Agent - Task Decomposition
+
+on:
+  issues:
+    types: [opened, labeled, edited]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Issue number to process'
+        required: true
+        type: number
+
+permissions:
+  issues: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  analyze-and-decompose:
+    runs-on: ubuntu-latest
+    # Only trigger for unlabeled issues or issues with agent:planning label
+    if: |
+      (github.event_name == 'issues' &&
+       (github.event.action == 'opened' ||
+        (github.event.action == 'labeled' && github.event.label.name == 'agent:planning'))) ||
+      (github.event_name == 'issue_comment' &&
+       contains(github.event.comment.body, '@planning-agent')) ||
+      github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Get Issue Details
+        id: issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = context.payload.issue?.number || ${{ inputs.issue_number }};
+            const issue = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber
+            });
+
+            return {
+              number: issue.data.number,
+              title: issue.data.title,
+              body: issue.data.body || '',
+              labels: issue.data.labels.map(l => l.name)
+            };
+
+      - name: Analyze Issue Complexity
+        id: analyze
+        uses: actions/github-script@v7
+        env:
+          ISSUE_TITLE: ${{ fromJSON(steps.issue.outputs.result).title }}
+          ISSUE_BODY: ${{ fromJSON(steps.issue.outputs.result).body }}
+        with:
+          script: |
+            const issue = JSON.parse(process.env.ISSUE_TITLE);
+            const body = process.env.ISSUE_BODY;
+
+            // Simple heuristic for complexity
+            const keywords = {
+              database: ['database', 'schema', 'migration', 'sql', 'supabase'],
+              frontend: ['ui', 'component', 'react', 'nextjs', 'tailwind', 'page'],
+              backend: ['api', 'endpoint', 'function', 'server', 'auth'],
+              testing: ['test', 'e2e', 'unit', 'integration'],
+              devops: ['deploy', 'ci/cd', 'pipeline', 'docker']
+            };
+
+            const requiredAgents = [];
+            const text = (issue + ' ' + body).toLowerCase();
+
+            for (const [agent, terms] of Object.entries(keywords)) {
+              if (terms.some(term => text.includes(term))) {
+                requiredAgents.push(agent);
+              }
+            }
+
+            // If no specific agents identified, default to web-dev
+            if (requiredAgents.length === 0) {
+              requiredAgents.push('web-dev');
+            }
+
+            core.setOutput('agents', requiredAgents.join(','));
+            core.setOutput('complexity', requiredAgents.length > 2 ? 'high' : 'medium');
+
+            return { agents: requiredAgents, complexity: requiredAgents.length };
+
+      - name: Generate Task Decomposition Plan
+        id: plan
+        uses: actions/github-script@v7
+        env:
+          ISSUE_DATA: ${{ steps.issue.outputs.result }}
+          AGENTS: ${{ steps.analyze.outputs.agents }}
+        with:
+          script: |
+            const issue = JSON.parse(process.env.ISSUE_DATA);
+            const agents = process.env.AGENTS.split(',');
+
+            // Generate decomposition plan
+            const plan = {
+              title: `Implementation Plan: ${issue.title}`,
+              overview: `This plan breaks down the implementation into ${agents.length} specialized tasks.`,
+              tasks: []
+            };
+
+            // Generate subtasks based on identified agents
+            const agentTasks = {
+              database: {
+                title: 'Design and implement database schema',
+                description: 'Create Supabase tables, RLS policies, and migrations',
+                label: 'agent:database',
+                dependencies: []
+              },
+              backend: {
+                title: 'Implement backend API endpoints',
+                description: 'Create Supabase Edge Functions and business logic',
+                label: 'agent:api',
+                dependencies: ['database']
+              },
+              frontend: {
+                title: 'Build frontend UI components',
+                description: 'Create React components with Tailwind CSS',
+                label: 'agent:web-dev',
+                dependencies: ['backend']
+              },
+              testing: {
+                title: 'Write comprehensive tests',
+                description: 'Unit, integration, and E2E tests',
+                label: 'agent:testing',
+                dependencies: ['frontend', 'backend']
+              },
+              devops: {
+                title: 'Setup deployment pipeline',
+                description: 'Configure CI/CD and production deployment',
+                label: 'agent:devops',
+                dependencies: ['testing']
+              }
+            };
+
+            // Add tasks for identified agents
+            for (const agent of agents) {
+              if (agentTasks[agent]) {
+                plan.tasks.push(agentTasks[agent]);
+              }
+            }
+
+            return plan;
+
+      - name: Create Project Plan Document
+        uses: actions/github-script@v7
+        env:
+          PLAN: ${{ steps.plan.outputs.result }}
+          ISSUE_NUMBER: ${{ fromJSON(steps.issue.outputs.result).number }}
+        with:
+          script: |
+            const plan = JSON.parse(process.env.PLAN);
+            const issueNumber = process.env.ISSUE_NUMBER;
+
+            // Generate Markdown plan
+            let markdown = `# ${plan.title}\n\n`;
+            markdown += `**Parent Issue:** #${issueNumber}\n\n`;
+            markdown += `## Overview\n${plan.overview}\n\n`;
+            markdown += `## Task Breakdown\n\n`;
+
+            plan.tasks.forEach((task, index) => {
+              markdown += `### Task ${index + 1}: ${task.title}\n`;
+              markdown += `- **Description:** ${task.description}\n`;
+              markdown += `- **Agent:** \`${task.label}\`\n`;
+              markdown += `- **Dependencies:** ${task.dependencies.length > 0 ? task.dependencies.join(', ') : 'None'}\n`;
+              markdown += `- **Status:** 🔴 Not Started\n\n`;
+            });
+
+            markdown += `## Execution DAG\n\n\`\`\`mermaid\ngraph TD\n`;
+            plan.tasks.forEach((task, index) => {
+              const taskId = `T${index + 1}`;
+              markdown += `  ${taskId}[${task.title}]\n`;
+              task.dependencies.forEach(dep => {
+                const depIndex = plan.tasks.findIndex(t => t.label.includes(dep));
+                if (depIndex !== -1) {
+                  markdown += `  T${depIndex + 1} --> ${taskId}\n`;
+                }
+              });
+            });
+            markdown += `\`\`\`\n\n`;
+
+            markdown += `---\n*Generated by Planning Agent*\n`;
+
+            // Create or update project_plan.md
+            const fs = require('fs');
+            const path = require('path');
+
+            const planPath = path.join(process.env.GITHUB_WORKSPACE, 'project_plan.md');
+
+            let existingPlan = '';
+            if (fs.existsSync(planPath)) {
+              existingPlan = fs.readFileSync(planPath, 'utf8');
+            }
+
+            const newPlan = existingPlan + '\n\n' + markdown;
+            fs.writeFileSync(planPath, newPlan);
+
+            core.setOutput('plan_markdown', markdown);
+
+      - name: Create Subtask Issues
+        uses: actions/github-script@v7
+        env:
+          PLAN: ${{ steps.plan.outputs.result }}
+          ISSUE_NUMBER: ${{ fromJSON(steps.issue.outputs.result).number }}
+        with:
+          script: |
+            const plan = JSON.parse(process.env.PLAN);
+            const parentIssue = process.env.ISSUE_NUMBER;
+
+            const createdIssues = [];
+
+            for (const task of plan.tasks) {
+              const issueBody = `## Task Description
+${task.description}
+
+## Parent Issue
+This task is part of #${parentIssue}
+
+## Dependencies
+${task.dependencies.length > 0 ? task.dependencies.map(d => `- ${d}`).join('\n') : 'None - can start immediately'}
+
+## Acceptance Criteria
+- [ ] Code implemented and tested
+- [ ] Tests passing (unit + integration)
+- [ ] Documentation updated
+- [ ] PR created and linked to this issue
+
+## Instructions
+Please read [.github/AGENTS.md](.github/AGENTS.md) for detailed guidelines.
+
+---
+*Created by Planning Agent*
+`;
+
+              const newIssue = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: task.title,
+                body: issueBody,
+                labels: [task.label, 'automated', `parent:${parentIssue}`]
+              });
+
+              createdIssues.push({
+                number: newIssue.data.number,
+                title: task.title,
+                label: task.label
+              });
+
+              console.log(`Created issue #${newIssue.data.number}: ${task.title}`);
+            }
+
+            return createdIssues;
+
+      - name: Comment on Parent Issue
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ fromJSON(steps.issue.outputs.result).number }}
+          PLAN_MARKDOWN: ${{ steps.plan.outputs.plan_markdown }}
+          CREATED_ISSUES: ${{ steps.create-subtasks.outputs.result }}
+        with:
+          script: |
+            const issueNumber = process.env.ISSUE_NUMBER;
+            const planMarkdown = process.env.PLAN_MARKDOWN;
+            const createdIssues = JSON.parse(process.env.CREATED_ISSUES);
+
+            let comment = `## 🤖 Planning Agent Analysis Complete\n\n`;
+            comment += `I've analyzed this issue and decomposed it into ${createdIssues.length} specialized subtasks.\n\n`;
+            comment += `### Created Subtasks\n`;
+
+            createdIssues.forEach(issue => {
+              comment += `- #${issue.number} - ${issue.title} (\`${issue.label}\`)\n`;
+            });
+
+            comment += `\n### Execution Plan\n`;
+            comment += `The detailed plan has been added to \`project_plan.md\`.\n\n`;
+            comment += `<details>\n<summary>View Plan</summary>\n\n${planMarkdown}\n</details>\n\n`;
+            comment += `### Next Steps\n`;
+            comment += `Specialized agents will now work on their assigned tasks. I'll monitor progress and coordinate integration.\n\n`;
+            comment += `---\n*You can mention \`@planning-agent\` in comments if you need to update the plan.*\n`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: comment
+            });
+
+            // Add planning-complete label
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: ['planning-complete', 'in-progress']
+            });
+
+      - name: Commit Project Plan
+        run: |
+          git config user.name "Planning Agent"
+          git config user.email "planning-agent@github-actions"
+          git add project_plan.md
+          git diff --staged --quiet || git commit -m "docs: update project plan for issue #${{ fromJSON(steps.issue.outputs.result).number }}"
+          git push || echo "No changes to commit"
+
+  monitor-progress:
+    runs-on: ubuntu-latest
+    # Trigger when subtask issues are closed
+    if: |
+      github.event_name == 'issues' &&
+      github.event.action == 'closed' &&
+      contains(github.event.issue.labels.*.name, 'parent:')
+
+    steps:
+      - name: Extract Parent Issue
+        id: parent
+        run: |
+          PARENT_LABEL="${{ join(github.event.issue.labels.*.name, ',') }}"
+          PARENT_NUM=$(echo "$PARENT_LABEL" | grep -oP 'parent:\K\d+' || echo "")
+          echo "number=$PARENT_NUM" >> $GITHUB_OUTPUT
+
+      - name: Check All Subtasks Complete
+        if: steps.parent.outputs.number != ''
+        uses: actions/github-script@v7
+        env:
+          PARENT_NUMBER: ${{ steps.parent.outputs.number }}
+        with:
+          script: |
+            const parentNumber = process.env.PARENT_NUMBER;
+
+            // Get all issues with parent label
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: `parent:${parentNumber}`,
+              state: 'all'
+            });
+
+            const total = issues.length;
+            const completed = issues.filter(i => i.state === 'closed').length;
+
+            console.log(`Progress: ${completed}/${total} subtasks completed`);
+
+            if (completed === total && total > 0) {
+              // All subtasks complete - comment on parent
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: parentNumber,
+                body: `## ✅ All Subtasks Complete!\n\nAll ${total} subtasks have been completed successfully. Ready for final review and integration.\n\n---\n*Planning Agent*`
+              });
+
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: parentNumber,
+                labels: ['ready-for-review']
+              });
+            }

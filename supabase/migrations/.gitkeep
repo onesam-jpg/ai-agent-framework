@@ -1,0 +1,10 @@
+# Migration files will be generated here by Supabase CLI
+# Example: 20250101000000_initial_schema.sql
+
+# To create a new migration:
+# supabase migration new <migration_name>
+
+# To apply migrations:
+# supabase db push
+
+# Migrations are applied in alphabetical order by filename

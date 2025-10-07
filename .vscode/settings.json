@@ -1,0 +1,141 @@
+{
+  // Editor Performance Optimizations
+  "editor.codeLens": false,
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "explicit"
+  },
+  "editor.inlineSuggest.enabled": true,
+  "editor.suggestSelection": "first",
+  "editor.tabSize": 2,
+  "editor.wordWrap": "on",
+
+  // File Management
+  "files.hotExit": "off",
+  "files.autoSave": "onFocusChange",
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/out": true,
+    "**/.vercel": true,
+    "**/dist": true
+  },
+
+  // Search Optimizations
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.next": true,
+    "**/out": true,
+    "**/.vercel": true,
+    "**/build": true,
+    "**/.git": true,
+    "**/coverage": true
+  },
+
+  // TypeScript Configuration
+  "typescript.tsserver.maxTsServerMemory": 4096,
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "typescript.suggest.autoImports": true,
+
+  // JavaScript Configuration
+  "javascript.updateImportsOnFileMove.enabled": "always",
+  "javascript.suggest.autoImports": true,
+
+  // Tailwind CSS
+  "tailwindCSS.experimental.classRegex": [
+    ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
+    ["cn\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"]
+  ],
+  "tailwindCSS.emmetCompletions": true,
+
+  // ESLint Configuration
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact"
+  ],
+  "eslint.format.enable": true,
+
+  // Prettier Configuration
+  "prettier.singleQuote": true,
+  "prettier.semi": true,
+  "prettier.trailingComma": "es5",
+
+  // GitHub Copilot Configuration
+  "github.copilot.enable": {
+    "*": true,
+    "markdown": true,
+    "yaml": true,
+    "plaintext": false
+  },
+  "github.copilot.chat.codeGeneration.instructions": [
+    {
+      "file": ".github/AGENTS.md"
+    }
+  ],
+
+  // MCP (Model Context Protocol) Configuration
+  "chat.mcp.discovery.enabled": true,
+
+  // Supabase Configuration
+  "supabase.showInlineVariableNames": true,
+
+  // Git Configuration
+  "git.autofetch": true,
+  "git.confirmSync": false,
+  "git.enableSmartCommit": true,
+
+  // Terminal Configuration
+  "terminal.integrated.defaultProfile.linux": "bash",
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  "terminal.integrated.fontSize": 14,
+
+  // Markdown Configuration
+  "markdown.preview.fontSize": 14,
+  "markdown.preview.lineHeight": 1.6,
+
+  // Language-Specific Settings
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.wordWrap": "on"
+  },
+  "[yaml]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  // Experimental Features
+  "workbench.editor.enablePreview": false,
+  "workbench.startupEditor": "none",
+  "explorer.confirmDelete": false,
+  "explorer.confirmDragAndDrop": false,
+
+  // AI Toolkit
+  "ai-toolkit.enabled": true
+}
