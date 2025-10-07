@@ -42,10 +42,6 @@ jobs:
             echo "No requirements.txt found - skipping pip install"
           fi
 
-      - name: Install Supabase CLI
-        run: |
-          npm install -g supabase
-
       - name: Setup Playwright (for E2E tests)
         run: |
           if grep -q "@playwright/test" package.json 2>/dev/null; then
@@ -59,7 +55,6 @@ jobs:
           echo "Node version: $(node --version)"
           echo "NPM version: $(npm --version)"
           echo "Python version: $(python --version)"
-          echo "Supabase CLI version: $(supabase --version)"
 
       - name: Run Database Migrations (if Supabase configured)
         env:
@@ -68,8 +63,8 @@ jobs:
         run: |
           if [ -d "supabase" ] && [ -n "$SUPABASE_ACCESS_TOKEN" ]; then
             echo "Running Supabase migrations..."
-            supabase link --project-ref $SUPABASE_PROJECT_REF
-            supabase db push
+            npx supabase link --project-ref $SUPABASE_PROJECT_REF
+            npx supabase db push
           else
             echo "Supabase not configured - skipping migrations"
           fi
@@ -81,7 +76,8 @@ jobs:
         run: |
           if [ -d "supabase" ] && [ -n "$SUPABASE_ACCESS_TOKEN" ]; then
             echo "Generating TypeScript types from database..."
-            supabase gen types typescript --linked > types/supabase.ts || mkdir -p types && supabase gen types typescript --linked > types/supabase.ts
+            mkdir -p types
+            npx supabase gen types typescript --linked > types/supabase.ts
           else
             echo "Supabase not configured - skipping type generation"
           fi
