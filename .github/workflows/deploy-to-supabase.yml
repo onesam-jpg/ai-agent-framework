@@ -28,22 +28,19 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install Supabase CLI
-        run: npm install -g supabase
-
       - name: Link Supabase Project
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
         run: |
-          supabase link --project-ref $SUPABASE_PROJECT_REF
+          npx supabase link --project-ref $SUPABASE_PROJECT_REF
 
       - name: Run Database Migrations
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           echo "Running database migrations..."
-          supabase db push
+          npx supabase db push
 
       - name: Deploy Edge Functions
         env:
@@ -51,7 +48,7 @@ jobs:
         run: |
           if [ -d "supabase/functions" ]; then
             echo "Deploying Edge Functions..."
-            supabase functions deploy
+            npx supabase functions deploy
           else
             echo "No Edge Functions found - skipping"
           fi
@@ -61,7 +58,7 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           mkdir -p types
-          supabase gen types typescript --linked > types/supabase.ts
+          npx supabase gen types typescript --linked > types/supabase.ts
           echo "✅ Database types generated"
 
       - name: Commit Generated Types
