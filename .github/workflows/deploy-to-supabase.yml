@@ -168,18 +168,14 @@ jobs:
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: issueNumber,
-                  body: `## ${emoji} Deployment ${status === 'success' ? 'Complete' : 'Failed'}
-
-**Status**: ${message}
-
-**Deployed Components**:
-- Database: ${status === 'success' ? '✅ Updated' : '❌ Failed'}
-- Frontend: ${status === 'success' ? '✅ Live' : '❌ Failed'}
-
-${status === 'success' ? '🎉 Your changes are now live in production!' : '⚠️ Please check the deployment logs and fix any issues.'}
-
----
-*Automated deployment by GitHub Actions*`
+                  body: '## ' + emoji + ' Deployment ' + (status === 'success' ? 'Complete' : 'Failed') + '\n\n' +
+                    '**Status**: ' + message + '\n\n' +
+                    '**Deployed Components**:\n' +
+                    '- Database: ' + (status === 'success' ? '✅ Updated' : '❌ Failed') + '\n' +
+                    '- Frontend: ' + (status === 'success' ? '✅ Live' : '❌ Failed') + '\n\n' +
+                    (status === 'success' ? '🎉 Your changes are now live in production!' : '⚠️ Please check the deployment logs and fix any issues.') + '\n\n' +
+                    '---\n' +
+                    '*Automated deployment by GitHub Actions*'
                 });
               }
             }
